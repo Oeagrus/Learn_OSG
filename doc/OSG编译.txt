@@ -1,0 +1,120 @@
+【工具 & 平台】
+Window 10 64位
+VS2013
+CMake
+
+
+【准备】
+从gitHub上下载最新的osg代码
+	https://github.com/openscenegraph/OpenSceneGraph
+下载3rdParty第三方库
+	完整的64位软件包https://download.osgvisual.org/3rdParty_VS2013.5_v120_x64_V10_full.7z - 最后更新：2016/10/22的V10
+下载数据包
+	OpenSceneGraph-Data-3.4.0.zip
+
+【初始设置】
+建议目录结构
+	-OpenSceneGraph-master
+		-3rdParty                     //放置下载的第三方库3rdParty，解压后以bin，lib等目录直接位于
+		-BUILD                        //CMake构建生成的目标目录
+		-OpenSceneGraph               //放置下载的osg源代码
+
+
+【使用CMake生成项目和解决方案】
+打开CMake，源文件路径选择OpenSceneGraph-master/OpenSceneGraph，目标路径选择OpenSceneGraph-master/BUILD
+
+点击[Configure]
+修改ACTUAL_3RDPARTY_DIR为OpenSceneGraph-master/3rdParty
+选择想要构建的项目，建议勾选所有BUILD_XXX
+修改CMAKE_INSTALL_PREFIX为C:/OpenSceneGraph                             //CMake最好用管理员权限打开，防止对一些文件夹没有写权限
+
+点击[Generate]
+生成
+
+点击[Open Project]
+使用VS2013打开新生成的解决方案
+
+关闭CMake
+
+【编译生成】
+VS2013打开新生成的解决方案，选择：生成 -> 批生成，勾选Debug和Release版本ALL_BUILD，生成
+
+<问题1>
+编译过程中如果包含3rdparty则可能报缺少缺少unistd.h文件的错误信息如下：
+
+//错误	3	error C1083: 无法打开包括文件: “unistd.h”: No such file or directory	d:\09-osg\openscenegraph-master\3rdparty\include\zconf.h	454	1	osgDB
+
+解决：
+头文件unistd.h是Linux/Unix的系统调用，包含了许多UNIX系统服务函数原型，如open、read、write、_exit、getpid等函数，新建一个unistd.h文件内容如下
+
+#ifndef _UNISTD_H
+#define _UNISTD_H 
+#include <io.h> 
+#include <process.h> 
+#endif /* _UNISTD_H */
+
+放在C:\Program Files (x86)\Microsoft Visual Studio 12.0\VC\include中，重启VS，生成ok
+
+【安装】
+VS2013选择：生成 -> 批生成，勾选Debug和Release版本INSTALL，生成
+
+在之前CMake中配置的C:/OpenSceneGraph目录下会生成debug和release的头文件和库
+
+将下载的数据包文件OpenSceneGraph-Data-3.4.0.zip解压放在C:/OpenSceneGraph/data下，配置环境变量OSG_FILE_PATH后，这个文件夹下的数据文件将被osg自动纳入搜索路径
+
+安装完成 - 大小2.34G
+
+
+【环境变量】
+
+OSG_ROOT 			=C:\OpenSceneGraph                                     //指向OSG文件结构的基础（包含  include，  src  等子目录的目录）
+OSG_BIN_PATH 		=％OSG_ROOT％\bin 
+OSG_INCLUDE_PATH 	=％OSG_ROOT％\include 
+OSG_LIB_PATH 		=％OSG_ROOT％\lib 
+OSG_SAMPLES_PATH 	=％OSG_ROOT％\share\OpenSceneGraph\bin 
+OSG_FILE_PATH 		=%OSG_ROOT%\data                                       //数据文件位置，osg会自动搜索该目录下的图形和模型文件
+OSG_NOTIFY_LEVEL	=WARN                                                  //调试信息输出的条件
+
+再将％OSG_BIN_PATH％和％OSG_SAMPLES_PATH％添加到PATH环境变量中
+
+重启电脑
+
+【VS工程属性配置】
+
+属性 -  C / C ++  - 常规 - 其他包含目录=  $（OSG_INCLUDE_PATH）
+属性 -  C / C ++  - 预处理器 - 预处理器定义=  WIN32; _WIN32; NDEBUG
+属性 - 链接器 - 常规 - 其他库目录=  $（OSG_LIB_PATH）
+属性 - 链接器 -输入 - 附加依赖项=（您的项目需要的任何OSG库 - 例如：  osg.lib osgGA.lib osgDB.lib osgViewer.lib osgText.lib osgUtil.lib OpenThreads.lib）
+
+注意：debug下添加库名称后加d，例如osgd.lib
+
+如果有问题先在cmd中测试环境变量试试
+echo％OSG_LIB_PATH％  
+或  dir％OSG_LIB_PATH％
+
+【测试是否成功】
+<1>打开cmd或者powershell
+	输入 osgveriosn 会输出 版本号
+	输入 osgviewer cow.osg 显示一头牛
+	
+//可能问题：打开osgviwer时，缺少zlib.dll 动态库，从OpenSceneGraph-master\3rdParty\bin中拷贝zlib.dll和zlibd.dll，放到C:/OpenSceneGraph/bin
+	
+<2>创建工程测试
+	按属性项配置好依赖项，注意平台和配置。运行如下代码
+
+/* main.cpp */	
+//////////////////////////////////////////////////////////////////////////
+#include <osgDB/ReadFile>
+#include <osgViewer/Viewer>
+
+int main()
+{
+	osg::ref_ptr<osg::Node> model = osgDB::readNodeFile("cow.osg");
+
+	osg::ref_ptr<osgViewer::Viewer> viewer = new osgViewer::Viewer();
+	viewer->setSceneData(model);
+
+	return viewer->run();
+}
+////////////////////////////////////////////////////////////////////////////
+	
